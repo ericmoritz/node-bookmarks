@@ -8,12 +8,9 @@
     "body-parser": "^1.12.3",
     "express": "^4.12.3",
     "fantasy-options": "0.0.1",
-    "glob": "^5.0.5",
-    "hydra-view": "^1.0.0",
     "immutable": "^3.7.2",
     "jsonld-dsl": "0.0.5",
-    "q": "^1.3.0",
-    "redis": "^0.12.1"
+    "q": "^1.3.0"
   },
   "devDependencies": {},
   "scripts": {
