@@ -8,6 +8,7 @@
     "body-parser": "^1.12.3",
     "express": "^4.12.3",
     "fantasy-options": "0.0.1",
+    "forever": "^0.14.1",
     "immutable": "^3.7.2",
     "jsonld-dsl": "0.0.6",
     "orm": "^2.1.24",
