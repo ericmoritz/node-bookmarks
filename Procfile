@@ -1,1 +1,1 @@
-web: babel-node src/service.es
+web: forever -c babel-node src/service.es
