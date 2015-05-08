@@ -7,21 +7,28 @@ const isPromise = v => v !== null && typeof v === 'object' && typeof v.then === 
 export default (cb) => (req, res) => {
   let handler = (data) => {
     if(isPromise(data)) {
+      // If the data is a promise, then bind the handler
       data.then(handler).done()
     } else if(data == None) {
-      res.status(404)
-      res.end()      
-    } else if(data instanceof Left) {
-      res.status(400)
-      return handler(data.l)
-    } else if(data instanceof Right) {
-      return handler(data.r)
+      // If the data is None, respond with a 404 Not Found
+      res.status(404).end()
     } else if(data instanceof Some) {
-      return handler(data.x)
-    } else if(data == undefined) {
-      res.status(204)
-      res.end()
+      // If the data is a Some value, unwrap the contained data
+      handler(data.x)
+    } else if(data instanceof Left) {
+      // If the data is a Left value, treat that as a 404 and pass on
+      // the contained value for rendering
+      res.status(400)
+      handler(data.l)
+    } else if(data instanceof Right) {
+      // If the data is a Right value, just unwrap the contained data
+      return handler(data.r)
+    } else if(data == undefined && res.statusCode == undefined) {
+      // If the data is undefined and the statusCode has not been set,
+      // respond with a 204 No Content
+      res.status(204).end()
     } else {
+      // Finally, serialized the data as JSON
       res.json(data)
     }
   }
