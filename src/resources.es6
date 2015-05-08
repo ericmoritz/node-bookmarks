@@ -55,21 +55,21 @@ export const Bookmark = {
   PUT: (root, bookmarkModel, id, body) =>
     validateBookmarkForm(body)
     .bimap(
-      errors => RootResource(root)
-      schema.error(errors)
+      errors => RootResource(
+        schema.error(errors)
+      ),
+      form => DB.put(
+        bookmarkModel, id, body
+      ).then(
+        option => option.map(toNull)
+      )
     ),
-  form => DB.put(
-    bookmarkModel, id, body
-  ).then(
-    option => option.map(toNull)
-  )
-),
-DELETE: (root, bookmarkModel, id) =>
-  DB.delete(
-    bookmarkModel, id
-  ).then(
-    option => option.map(toNull)
-  )
+  DELETE: (root, bookmarkModel, id) =>
+    DB.delete(
+      bookmarkModel, id
+    ).then(
+      option => option.map(toNull)
+    )
 }
 
 
