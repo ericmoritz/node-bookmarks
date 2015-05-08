@@ -10,9 +10,9 @@ import {Left, Right} from 'fantasy-eithers'
 /* Resources */
 /*************/
 export const contextResource = Resource(
-    Prefix('schema', 'http://schema.org/', schema)
-  , Prefix('hydra', 'http://www.w3.org/ns/hydra/core#', hydra)
-  , Prefix('xhtml', 'http://www.w3.org/1999/xhtml#', xhtml)
+  Prefix('schema', 'http://schema.org/', schema),
+  Prefix('hydra', 'http://www.w3.org/ns/hydra/core#', hydra),
+  Prefix('xhtml', 'http://www.w3.org/1999/xhtml#', xhtml)
 )
 
 export const Index = {
@@ -113,17 +113,17 @@ const validateBookmarkForm = data => {
 }
 
 const BookmarkResource = (root, bookmark) => schema.WebPage(
-    URI(root + '/' + bookmark.id)
-  , PUT(hydra.expects(bookmarkForm), hydra.statusCodes([201, 400]))
-  , DELETE(hydra.statusCodes([201]))
-  , xhtml.up(URI(root + '/'))
-  , bookmark
+  URI(root + '/' + bookmark.id),
+  PUT(hydra.expects(bookmarkForm), hydra.statusCodes([201, 400])),
+  DELETE(hydra.statusCodes([201])),
+  xhtml.up(URI(root + '/')),
+  bookmark
 )
 
 const IndexResource = (root, members) => hydra.Collection(
-    URI(root + '/')
-  , POST(hydra.expects(bookmarkForm), hydra.statusCodes([303, 400]))
-  , hydra.member(List(members))
+  URI(root + '/'),
+  POST(hydra.expects(bookmarkForm), hydra.statusCodes([303, 400])),
+  hydra.member(List(members))
 )
 
 
