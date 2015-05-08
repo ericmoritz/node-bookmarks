@@ -104,7 +104,6 @@ const errorResource = (description) => Resource(
 
 // Returns a List of error strings
 const validateBookmarkForm = data => {
-  console.log(data)
   let nameErrors = !data.name ? Set.of(errorResource(".name undefined")) : Set()
   let urlErrors = !data.url ? Set.of(errorResource(".url undefined")) : Set()
   let errors = nameErrors.union(urlErrors)
