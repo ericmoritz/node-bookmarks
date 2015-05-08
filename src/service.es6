@@ -100,7 +100,7 @@ app.put(
       HTTP.root(req),
       req.models.bookmark,
       req.params.id,
-      trace('body', req.body)
+      req.body
     )
   )
 )
@@ -118,10 +118,7 @@ app.delete(
 )
 
 var server = app.listen(config.PORT, function () {
-
   var host = server.address().address;
   var port = server.address().port;
-
   console.log('Example app listening at http://%s:%s', host, port);
-
 });

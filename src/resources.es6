@@ -5,6 +5,7 @@ import {Map, Set, List} from 'immutable'
 import {Resource, Prefix, URI} from 'jsonld-dsl'
 import {Left, Right} from 'fantasy-eithers'
 
+const toNull = (...args) => null
 
 /*************/
 /* Resources */
@@ -18,25 +19,24 @@ export const contextResource = Resource(
 export const Index = {
   GET: (root, bookmarkModel) =>
     DB.all(bookmarkModel).then(
-      x => Resource(
-        contextLink(root),
-        IndexResource(root, x.map(x => BookmarkResource(root, x)))
+      bookmarks => RootResource(root)(
+        IndexResource(root)(
+          bookmarks.map(BookmarkResource(root))
+        )
       )
     ),
 
   POST: (root, bookmarkModel, body) =>
     validateBookmarkForm(body).bimap(
-      errors => Resource(
-        contextLink(root),
+      errors => RootResource(root)(
         schema.error(errors),
         IndexResource(root)
       ),
       form => DB.post(
         bookmarkModel, form
       ).then(
-        bookmark => Resource(
-          contextLink(root),
-          BookmarkResource(root, bookmark)
+        bookmark => RootResource(root)(
+          BookmarkResource(root)(bookmark)
         )
       )
     )
@@ -46,32 +46,30 @@ export const Bookmark = {
   GET: (root, bookmarkModel, id) =>
     DB.get(
       bookmarkModel, id
-      ).then(
-        option => option.map(
-          x => Resource(
-            BookmarkResource(root, x)),
-            contextLink(root)
-          )
-      ),
-  PUT: (root, bookmarkModel, id, body) =>
-     validateBookmarkForm(body)
-      .bimap(
-        errors => Resource(
-          contextLink(root),
-          schema.error(errors)
-        ),
-        form => DB.put(
-          bookmarkModel, id, body
-        ).then(
-          option => option.map(x => null)
-        )
-      ),
-  DELETE: (root, bookmarkModel, id) =>
-    DB.delete(
-      bookmarkModel, id
     ).then(
-      option => option.map(x => null)
-    )
+      option => option.map(
+        bookmark => RootResource(root)(
+          BookmarkResource(root)(bookmark))
+      )
+    ),
+  PUT: (root, bookmarkModel, id, body) =>
+    validateBookmarkForm(body)
+    .bimap(
+      errors => RootResource(root)
+      schema.error(errors)
+    ),
+  form => DB.put(
+    bookmarkModel, id, body
+  ).then(
+    option => option.map(toNull)
+  )
+),
+DELETE: (root, bookmarkModel, id) =>
+  DB.delete(
+    bookmarkModel, id
+  ).then(
+    option => option.map(toNull)
+  )
 }
 
 
@@ -95,24 +93,25 @@ const bookmarkForm = schema.WebPage(
   )
 )
 
-const errorResource = description => Resource(
-  schema.description(description)
-)
 
 
 // Returns a Left<Set<Resource>> if there are errors or Right(data) if valid
 const validateBookmarkForm = data => {
+  let errorResource = description => Resource(schema.description(description))
   let nameErrors = !data.name ? Set.of(errorResource(".name undefined")) : Set()
   let urlErrors = !data.url ? Set.of(errorResource(".url undefined")) : Set()
   let errors = nameErrors.union(urlErrors)
-  if(!errors.isEmpty()) {
-    return Left(errors)
-  } else {
-    return Right(data)
-  }
+  return !errors.isEmpty()
+    ? Left(errors)
+    : Right(data)
 }
 
-const BookmarkResource = (root, bookmark) => schema.WebPage(
+const RootResource = root => (...args) => Resource(
+  contextLink(root),
+    ...args
+)
+
+const BookmarkResource = root => bookmark => schema.WebPage(
   URI(root + '/' + bookmark.id),
   PUT(hydra.expects(bookmarkForm), hydra.statusCodes([201, 400])),
   DELETE(hydra.statusCodes([201])),
@@ -120,11 +119,8 @@ const BookmarkResource = (root, bookmark) => schema.WebPage(
   bookmark
 )
 
-const IndexResource = (root, members) => hydra.Collection(
+const IndexResource = root => members => hydra.Collection(
   URI(root + '/'),
   POST(hydra.expects(bookmarkForm), hydra.statusCodes([303, 400])),
   hydra.member(List(members))
 )
-
-
-
