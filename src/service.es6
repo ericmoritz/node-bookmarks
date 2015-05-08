@@ -49,7 +49,7 @@ app.use(orm.express(config.DB_URI, {
 
 // Context resource
 app.get(
-  '/context.json', (req, res) => { res.json(resources.contextResource) }
+  '/context.json', ExpressResource((req, res) => contextResource)
 )
 
 

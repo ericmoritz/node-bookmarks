@@ -20,7 +20,7 @@ export const Index = {
     DB.all(bookmarkModel).then(
       x => {
         return Resource(
-          contextResource,
+          contextLink(root),
           indexResource(root, x.map(x => bookmarkResource(root, x)))
         )
       }
@@ -29,7 +29,7 @@ export const Index = {
   POST: (root, bookmarkModel, body) =>
     validateBookmarkForm(body).bimap(
       errors => Resource(
-        contextResource,
+        contextLink(root),
         schema.error(errors),
         indexResource(root)
       ),
@@ -37,7 +37,7 @@ export const Index = {
         bookmarkModel, form
       ).then(
         bookmark => Resource(
-          contextResource,
+          contextLink(root),
           bookmarkResource(root, bookmark)
         )
       )
@@ -52,14 +52,14 @@ export const Bookmark = {
         option => option.map(
           x => Resource(
             bookmarkResource(root, x)),
-            contextResource
+            contextLink(root)
           )
       ),
   PUT: (root, bookmarkModel, id, body) =>
      validateBookmarkForm(body)
       .bimap(
         errors => Resource(
-          contextResource,
+          contextLink(root),
           schema.error(errors)
         ),
         form => DB.put(
@@ -102,7 +102,7 @@ const errorResource = (description) => Resource(
 )
 
 
-// Returns a List of error strings
+// Returns a Left<Set<Resource>> if there are errors or Right(data) if valid
 const validateBookmarkForm = data => {
   let nameErrors = !data.name ? Set.of(errorResource(".name undefined")) : Set()
   let urlErrors = !data.url ? Set.of(errorResource(".url undefined")) : Set()
