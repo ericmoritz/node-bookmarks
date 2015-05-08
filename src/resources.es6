@@ -20,7 +20,7 @@ export const Index = {
     DB.all(bookmarkModel).then(
       x => Resource(
         contextLink(root),
-        indexResource(root, x.map(x => bookmarkResource(root, x)))
+        IndexResource(root, x.map(x => BookmarkResource(root, x)))
       )
     ),
 
@@ -29,14 +29,14 @@ export const Index = {
       errors => Resource(
         contextLink(root),
         schema.error(errors),
-        indexResource(root)
+        IndexResource(root)
       ),
       form => DB.post(
         bookmarkModel, form
       ).then(
         bookmark => Resource(
           contextLink(root),
-          bookmarkResource(root, bookmark)
+          BookmarkResource(root, bookmark)
         )
       )
     )
@@ -49,7 +49,7 @@ export const Bookmark = {
       ).then(
         option => option.map(
           x => Resource(
-            bookmarkResource(root, x)),
+            BookmarkResource(root, x)),
             contextLink(root)
           )
       ),
@@ -75,7 +75,7 @@ export const Bookmark = {
 }
 
 
-const contextLink = (root) => Map(
+const contextLink = root => Map(
   {'@context': root + '/context.json'}
 )
 
@@ -95,7 +95,7 @@ const bookmarkForm = schema.WebPage(
   )
 )
 
-const errorResource = (description) => Resource(
+const errorResource = description => Resource(
   schema.description(description)
 )
 
@@ -112,7 +112,7 @@ const validateBookmarkForm = data => {
   }
 }
 
-const bookmarkResource = (root, bookmark) => schema.WebPage(
+const BookmarkResource = (root, bookmark) => schema.WebPage(
     URI(root + '/' + bookmark.id)
   , PUT(hydra.expects(bookmarkForm), hydra.statusCodes([201, 400]))
   , DELETE(hydra.statusCodes([201]))
@@ -120,7 +120,7 @@ const bookmarkResource = (root, bookmark) => schema.WebPage(
   , bookmark
 )
 
-const indexResource = (root, members) => hydra.Collection(
+const IndexResource = (root, members) => hydra.Collection(
     URI(root + '/')
   , POST(hydra.expects(bookmarkForm), hydra.statusCodes([303, 400]))
   , hydra.member(List(members))
