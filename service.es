@@ -1,16 +1,23 @@
 /* -*- mode: javascript -*- */
 import express from 'express'
+import expressPromises from 'express-promise'
 import bodyParser from 'body-parser'
 import orm from 'orm'
 import Q from 'q'
-import {Namespace, Resource, URI, Class, Prefix, Property} from 'jsonld-dsl'
+import {Namespace, Resource, URI, Class, Prefix, Property, hydra as hydraNS} from 'jsonld-dsl'
 import {Map, List, Set} from 'immutable'
+import {Left, Right} from 'fantasy-eithers'
 import {Some, None} from 'fantasy-options'
+import ExpressResource from './express-resource'
 const config = Object.freeze({
   DB_URI: process.env.DB_URI,
   PORT: process.env.PORT || '5000'
 })
 
+const trace = (msg, x) => {
+  console.log(msg, x)
+  return x
+}
 /**************/
 /* DB helpers */
 /*************/
@@ -39,6 +46,10 @@ const DB = {
 /**************/
 /* Namespaces */
 /*************/
+const ns = Namespace(
+  Property('bookmarkLink')
+)
+
 const hydra = Namespace(
     Class('Class')
   , Property('required')
@@ -56,9 +67,12 @@ const hydra = Namespace(
 
 
 const schema = Namespace(
-    Class('WebPage')
-  , Property('name')
-  , Property('url')
+  Property('error'),
+  Class('Thing'),
+  Class('WebPage'),
+  Property('name'),
+  Property('url'),
+  Property('description')
 )
 
 
@@ -89,6 +103,10 @@ const contextResource = Resource(
   , Prefix('hydra', 'http://www.w3.org/ns/hydra/core#', hydra)
   , Prefix('xhtml', 'http://www.w3.org/1999/xhtml#', xhtml)
 )
+const contextLink = (root) => Map(
+  {'@context': root + '/context.json'}
+)
+const context = contextResource
 
 const bookmarkForm = schema.WebPage(
   hydra.supportedProperty(
@@ -106,21 +124,20 @@ const bookmarkForm = schema.WebPage(
   )
 )
 
+const errorResource = (description) => Resource(
+  schema.description(description)
+)
+
+
 // Returns a List of error strings
 const validateBookmarkForm = data => {
-  let validateName = name => !name ? List.of(".name undefined") : List()
-  let validateURL = url => !url ? List.of(".url undefined") : List()
-  if(!data) {
-    return Map({
-      errors: List.of('form is undefined')
-    })
-    
+  let nameErrors = !data.name ? Set.of(errorResource(".name undefined")) : Set()
+  let urlErrors = !data.url ? Set.of(errorResource(".url undefined")) : Set()
+  let errors = nameErrors.union(urlErrors)
+  if(!errors.isEmpty()) {
+    return Left(errors)
   } else {
-    return Map({
-      errors: validateName(data.name).merge(
-        validateURL(data.url)
-      )
-    })
+    return Right(data)
   }
 }
 
@@ -144,30 +161,12 @@ const indexResource = (root, members) => hydra.Collection(
 /****************/
 
 const HTTP = {
-  root: req => req.protocol + '://' + req.get('Host'),
-
-  // If the form validates, i.e. an empty errors value
-  // call onOk with the form
-  statusWhenValid: validate => onOk => (req, res) => {
-    let form = req.body
-    let validation = validate(form)
-    if(validation.get('errors').size) {
-      res.status(400).json(validation)
-    } else {
-      return onOk(req, res, form)
-    }    
+  seeOther: (res, resource) => {
+    res.location(resource.get('@id'))
+    res.status(303)
+    return resource
   },
-
-  // Returns a 404 if the option is empty otherwise calls onSome with
-  // the contained value
-  notFoundOnNone: res => onSome => option => {
-    if(option == None) {
-      res.status(404).send('')
-    } else {
-      onSome(option.getOrElse(null))
-    }
-  }
-
+  root: req => req.protocol + '://' + req.get('Host'),
 }
 
 
@@ -176,6 +175,7 @@ const HTTP = {
 /*********/
 const app = express()
 app.use(bodyParser.json())
+app.use(expressPromises())
 app.use(orm.express(config.DB_URI, {
   define: (db, models, next) => {
     models.bookmark = db.define('bookmark', {
@@ -188,70 +188,104 @@ app.use(orm.express(config.DB_URI, {
 }))
 
 
+// Context resource
+app.get(
+  '/context.json', (req, res) => { res.json(contextResource) }
+)
+
 /******************/
 /* Index resource */
 /******************/
 app.get(
-  '/', (req, res) => {
-    DB.all(req.models.bookmark).then(
-      // Map the bookmarks to WebPage resources
+  '/', ExpressResource(
+    (req, res) => DB.all(req.models.bookmark).then(
       x => {
         let root = HTTP.root(req)
-        res.json(
-          indexResource(root, x.map(x => bookmarkResource(root, x))).merge(contextResource)
+        return Resource(
+          contextResource,
+          indexResource(root, x.map(x => bookmarkResource(root, x)))
         )
       }
-    ).done()
-  })
-
-
-app.post(
-  '/', HTTP.statusWhenValid(validateBookmarkForm)(
-    (req, res, form) => DB.post(req.models.bookmark, form).then(
-      bookmark => {
-        res.location('/' + bookmark.id).status(303).send('')
-      }
-    ).done()
+    )
   )
 )
 
+
+app.post(
+  '/', ExpressResource(
+    (req, res) =>
+      validateBookmarkForm(req.body)
+      .bimap(
+        errors => Resource(
+          contextResource,
+          schema.error(errors),
+          indexResource(HTTP.root(res))
+        ),
+
+        form => DB.post(
+          req.models.bookmark, form
+        ).then(
+          bookmark => Resource(
+              contextResource,
+              bookmarkResource(HTTP.root(req), bookmark)
+            )
+        )
+      )
+  )
+)
+        
 
 /*********************/
 /* Bookmark Resource */
 /*********************/
 app.get(
   '/:id',
-  (req, res) => 
-    DB.get(
-      req.models.bookmark, req.params.id
-    ).then(
-      option => option.map(x => bookmarkResource(HTTP.root(req), x))
-    ).then(
-      HTTP.notFoundOnNone(res)(
-        data => res.status(200).json(data.merge(contextResource))
+  ExpressResource(
+    (req, res) => 
+      DB.get(
+        req.models.bookmark, req.params.id
+      ).then(
+        option => option.map(
+          x => Resource(
+            bookmarkResource(HTTP.root(req), x)),
+            contextResource
+          )
       )
-    ).done()
-)
-
-app.put(
-  '/:id', HTTP.statusWhenValid(validateBookmarkForm)(
-    (req, res, form) =>
-      DB.put(req.models.bookmark, req.params.id, form).then(
-        HTTP.notFoundOnNone(res)(
-          data => res.status(204).send('')
-        )
-      ).done()
   )
 )
 
-app.delete(
-  '/:id', (req, res) =>
-    DB.delete(req.models.bookmark, req.params.id).then(
-      HTTP.notFoundOnNone(res)(
-        data => res.status(204).send('')
+
+app.put(
+  '/:id', 
+  ExpressResource(
+    (req, res) =>
+      validateBookmarkForm(req.body)
+      .bimap(
+        errors => Resource(
+          contextResource,
+          schema.error(errors)
+        ),
+        form => DB.put(req.models.bookmark, req.params.id, form).then(
+          option => option.map(
+            x => null
+          )
+        )
       )
-    ).done()
+  )
 )
+
+
+app.delete(
+  '/:id', ExpressResource(
+    (req, res) =>
+      DB.delete(
+        req.models.bookmark, req.params.id
+      ).then(
+        option => option.map(x => null)
+      )
+  )
+)
+
 
 console.dir(config.PORT)
 var server = app.listen(config.PORT, function () {
