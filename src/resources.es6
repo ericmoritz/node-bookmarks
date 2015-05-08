@@ -18,12 +18,10 @@ export const contextResource = Resource(
 export const Index = {
   GET: (root, bookmarkModel) =>
     DB.all(bookmarkModel).then(
-      x => {
-        return Resource(
-          contextLink(root),
-          indexResource(root, x.map(x => bookmarkResource(root, x)))
-        )
-      }
+      x => Resource(
+        contextLink(root),
+        indexResource(root, x.map(x => bookmarkResource(root, x)))
+      )
     ),
 
   POST: (root, bookmarkModel, body) =>
