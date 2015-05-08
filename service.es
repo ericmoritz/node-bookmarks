@@ -266,9 +266,7 @@ app.put(
           schema.error(errors)
         ),
         form => DB.put(req.models.bookmark, req.params.id, form).then(
-          option => option.map(
-            x => null
-          )
+          option => option.map(x => null)
         )
       )
   )
