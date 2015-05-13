@@ -9,6 +9,7 @@
     "express": "^4.12.3",
     "express-promise": "^0.4.0",
     "fantasy-eithers": "0.0.2",
+    "fantasy-express-resource": "0.0.3",
     "fantasy-options": "0.0.1",
     "forever": "^0.14.1",
     "immutable": "^3.7.2",

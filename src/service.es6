@@ -3,7 +3,7 @@ import express from 'express'
 import expressPromises from 'express-promise'
 import bodyParser from 'body-parser'
 import orm from 'orm'
-import ExpressResource from './express-resource'
+import ExpressResource from 'fantasy-express-resource'
 import * as resources from './resources'
 
 const config = Object.freeze({
